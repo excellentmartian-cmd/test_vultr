@@ -21,11 +21,17 @@ else
   UUID=$(cat /proc/sys/kernel/random/uuid)
 
   KEY_OUTPUT=$(xray x25519)
-  # xray x25519 输出形如:
-  # Private key: xxxx
-  # Public key: xxxx
-  PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -i "Private key" | awk '{print $NF}')
-  PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -i "Public key" | awk '{print $NF}')
+  # 兼容两种输出格式:
+  # 旧版本: "Private key: xxxx" / "Public key: xxxx"
+  # 新版本(v25.3.6+): "PrivateKey: xxxx" / "Password: xxxx" (Password 即公钥)
+  PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -iE "^Private ?[Kk]ey" | awk '{print $NF}')
+  PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -iE "^Public ?[Kk]ey|^Password" | awk '{print $NF}')
+
+  if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
+    echo "[entrypoint] 错误: 未能从 xray x25519 输出中解析出密钥,原始输出如下:"
+    echo "$KEY_OUTPUT"
+    exit 1
+  fi
 
   SHORT_ID=$(openssl rand -hex 8)
 
